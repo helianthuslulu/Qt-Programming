@@ -1,13 +1,13 @@
 ﻿#include <QtGui/QApplication>
 #include <QTextCodec>
-#include "dialog.h"
+#include "timeclient.h"
 
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
     QTextCodec::setCodecForTr(QTextCodec::codecForLocale());
-    Dialog w;
+    TimeClient w;
     w.show();
-
+    
     return a.exec();
 }
