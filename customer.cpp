@@ -1,37 +1,21 @@
-#ifndef DIALOG_H
-#define DIALOG_H
+﻿#include "customer.h"
+#include <iostream>
+#include <QDebug>
 
-#include <QDialog>
-#include <QPushButton>
-#include <QGridLayout>
-#include <QDialogButtonBox>
-#include "mythread.h"
+using namespace std;
 
-#define MAXSIZE 5
-
-namespace Ui {
-class Dialog;
+Customer::Customer()
+{
 }
 
-class Dialog : public QDialog
+void Customer::run()
 {
-    Q_OBJECT
-
-public:
-    Dialog(QWidget *parent = 0);
-    ~Dialog();
-public slots:
-    void start();//启动线程的槽函数
-    void stop();//终止线程的槽函数
-private:
-//    QWidget *widget;
-    QPushButton *startbutton;
-    QPushButton *stopbutton;
-    QPushButton *quitbutton;
-    QDialogButtonBox *buttonbox;
-    MyThread * workthread[MAXSIZE];//记录所启动的所有线程，是指针数组
-
-    Ui::Dialog *ui;
-};
-
-#endif // DIALOG_H
+    for (int i = 0; i < DataSize; i++) {
+        usedBytes.acquire();
+        qDebug() << buffer[i % BufferSize];
+        if ((i % 16 == 0) && (i != 0))
+            cout << endl;
+        freeBytes.release();
+    }
+    cout << endl;
+}
