@@ -1,24 +1,107 @@
-﻿#include "timeserver.h"
-#include "timethread.h"
+﻿#include "timeclient.h"
+#include "ui_timeclient.h"
+#include <QGridLayout>
+#include <QDataStream>
+#include <QMessageBox>
 
-TimeServer::TimeServer(QObject * parent)
-    : QTcpServer(parent)
+TimeClient::TimeClient(QWidget *parent) :
+    QDialog(parent),
+    ui(new Ui::TimeClient)
 {
-    dlg = (Dialog *)parent;
+    ui->setupUi(this);
+    setWindowTitle(tr("多线程时间服务客户端"));
+
+    serverNameLabel = new QLabel(tr("服务器名："));
+    serverNameLineEdit = new QLineEdit("Localhost");
+
+    portLabel = new QLabel(tr("端口："));
+    portLineEdit = new QLineEdit;
+
+    QGridLayout * layout = new QGridLayout;
+    layout->addWidget(serverNameLabel, 0, 0);
+    layout->addWidget(serverNameLineEdit, 0, 1);
+    layout->addWidget(portLabel, 1, 0);
+    layout->addWidget(portLineEdit, 1, 1);
+
+    dateTimeEdit = new QDateTimeEdit(this);
+    QHBoxLayout * layout1 = new QHBoxLayout;
+    layout1->addWidget(dateTimeEdit);
+
+    stateLabel = new QLabel(tr("请首先运行时间服务器"));
+    QHBoxLayout * layout2 = new QHBoxLayout;
+    layout2->addWidget(stateLabel);
+
+    getbtn = new QPushButton(tr("获取时间"));
+    getbtn->setDefault(true);
+    getbtn->setEnabled(false);
+    quitbtn = new QPushButton(tr("退出"));
+    QHBoxLayout * layout3 = new QHBoxLayout;
+    layout3->addStretch();
+    layout3->addWidget(getbtn);
+    layout3->addWidget(quitbtn);
+
+    QVBoxLayout * mainLayout = new QVBoxLayout(this);
+    mainLayout->addLayout(layout);
+    mainLayout->addLayout(layout1);
+    mainLayout->addLayout(layout2);
+    mainLayout->addLayout(layout3);
+
+    connect(serverNameLineEdit, SIGNAL(textChanged(QString)), this, SLOT(enableGetBtn()));
+    connect(portLineEdit, SIGNAL(textChanged(QString)), this, SLOT(enableGetBtn()));
+    connect(getbtn, SIGNAL(clicked()), this, SLOT(getTime()));
+    connect(quitbtn, SIGNAL(clicked()), this, SLOT(close()));
+
+    tcpSocket = new QTcpSocket(this);
+    connect(tcpSocket, SIGNAL(readyRead()), this, SLOT(readTime()));
+    connect(tcpSocket, SIGNAL(error(QAbstractSocket::socketError)),
+            this, SLOT(showError(QAbstractSocket::SocketError)));
+
+    portLineEdit->setFocus();
 }
 
-void TimeServer::incomingConnection(int socketDescriptor)
+TimeClient::~TimeClient()
 {
-    TimeThread * thread = new TimeThread(socketDescriptor, 0);//创建一个工作者线程
-    //将线程的结束的消息关联到槽函数slotShow()，用于显示请求计数。
-    //在此操作中，应为信号是跨线程的，所以使用了排队连接方式。
-    connect(thread, SIGNAL(finished()), dlg, SLOT(slotShow()));
-    //将上述创建的线程结束消息函数关联到自身的槽函数deleteLater()用于结束线程
-    //在此操作中，因为信号是连接在统一线程中的，所以使用了直连的方式，
-    //也可以省略掉，使用Qt的自动连接选择方式
-    //另外，由于工作者线程中存在网络事件，因此不能被外界线程销毁，这里使用了延迟销毁函数deleteLater()
-    //保证由工作者线程自身销毁
-    connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()), Qt::DirectConnection);
+    delete ui;
+}
 
-    thread->start();//启动上面创建的线程，执行这一语句之后，工作者线程TimeThread的虚函数run()开始执行
+void TimeClient::enableGetBtn()
+{
+    getbtn->setEnabled(!serverNameLineEdit->text().isEmpty() &&
+                       !portLineEdit->text().isEmpty());
+}
+
+void TimeClient::getTime()
+{
+    getbtn->setEnabled(false);
+    time2u = 0;
+    tcpSocket->abort();
+    tcpSocket->connectToHost(serverNameLineEdit->text(),
+                             portLineEdit->text().toInt());
+}
+
+void TimeClient::readTime()
+{
+    QDataStream in(tcpSocket);
+    in.setVersion(QDataStream::Qt_4_8);
+    if (time2u == 0) {
+        if (tcpSocket->bytesAvailable() < (int)sizeof(uint))
+            return ;
+        in >> time2u;
+    }
+    dateTimeEdit->setDateTime(QDateTime::fromTime_t(time2u));
+    getbtn->setEnabled(true);
+}
+
+void TimeClient::showError(QAbstractSocket::SocketError socketError)
+{
+    switch (socketError) {
+    case QAbstractSocket::RemoteHostClosedError:
+        break;
+    case QAbstractSocket::HostNotFoundError:
+        QMessageBox::information(this, tr("时间服务客户端"), tr("主机不可达"));
+        break;
+    default:
+        QMessageBox::information(this, tr("时间服务器客户端"), tr("产生如下错误：%1.").arg(tcpSocket->errorString()));
+    }
+    getbtn->setEnabled(true);
 }
