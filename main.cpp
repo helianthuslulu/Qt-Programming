@@ -1,20 +1,13 @@
-﻿/*
-  Qt中QSemaphore的使用
-*/
-#include "producer.h"
-#include "customer.h"
-#include <iostream>
-using namespace std;
+﻿#include <QtGui/QApplication>
+#include <QTextCodec>
+#include "dialog.h"
 
-int main()
+int main(int argc, char *argv[])
 {
-    Producer producer;
-    Customer customer;
-    producer.start();
-    customer.start();
-    producer.wait();
-    customer.wait();
+    QApplication a(argc, argv);
+    QTextCodec::setCodecForTr(QTextCodec::codecForLocale());
+    Dialog w;
+    w.show();
 
-    cout << "Hello World!" << endl;
-    return 0;
+    return a.exec();
 }
